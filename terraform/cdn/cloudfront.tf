@@ -1,48 +1,80 @@
-resource "aws_cloudfront_distribution" "ecs_distribution" {
+
+resource "aws_cloudfront_origin_access_control" "frontend_oac" {
+  name                              = "frontend-mrap-oac"
+  description                       = "OAC for S3 MRAP frontend"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+resource "aws_cloudfront_distribution" "app_frontend_cdn" {
   enabled             = true
   is_ipv6_enabled     = true
-  comment             = "CloudFront distribution for ECS application"
-  default_root_object = ""
+  comment             = "CloudFront distribution for frontend (S3 multi-region)"
+  price_class         = "PriceClass_All"
+  default_root_object = "index.html"
+
+  custom_error_response {
+    error_code            = 403
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
+  }
+
+  custom_error_response {
+    error_code            = 404
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
+  }
 
   origin {
-    
-    domain_name = data.terraform_remote_state.compute.outputs.alb_dns_name
-    origin_id   = "ecs-alb-origin"
+    domain_name              = data.terraform_remote_state.storage.outputs.Bucket_frontend-us-east-1
+    origin_id                = "s3-frontend-us-east-1"
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend_oac.id
+  }
 
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-      origin_read_timeout    = 60
-      origin_keepalive_timeout = 5
+  origin {
+    domain_name              = data.terraform_remote_state.storage.outputs.Bucket_frontend-us-east-2
+    origin_id                = "s3-frontend-us-east-2"
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend_oac.id
+  }
+
+  origin_group {
+    origin_id = "frontend-origin-group"
+
+    failover_criteria {
+      status_codes = [403, 404]
     }
 
-    custom_header {
-      name  = "X-Custom-Header"
-      value = "CloudFrontOrigin"
+    member {
+      origin_id = "s3-frontend-us-east-1"
+    }
+
+    member {
+      origin_id = "s3-frontend-us-east-2"
     }
   }
 
   default_cache_behavior {
-    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "ecs-alb-origin"
+    target_origin_id       = "frontend-origin-group"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD", "OPTIONS"]
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
 
     forwarded_values {
-      query_string = true
-      headers      = ["Host", "Accept", "Accept-Language", "Authorization"]
+      query_string = false
+      headers      = []
 
       cookies {
-        forward = "all"
+        forward = "none"
       }
     }
 
-    viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 0
-    max_ttl                = 0
-    compress               = true
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
   }
 
   restrictions {
@@ -51,25 +83,17 @@ resource "aws_cloudfront_distribution" "ecs_distribution" {
     }
   }
 
+
   viewer_certificate {
     cloudfront_default_certificate = true
   }
 
   tags = {
-    Name = "ecs-cloudfront-distribution"
+    Name        = "app-frontend-cdn"
+    Environment = "production"
   }
 }
 
-
-resource "aws_security_group_rule" "alb_from_cloudfront" {
-  type              = "ingress"
-  from_port         = 80
-  to_port           = 80
-  protocol          = "tcp"
-  prefix_list_ids   = [data.aws_ec2_managed_prefix_list.cloudfront.id]
-  security_group_id = data.terraform_remote_state.network.outputs.security_groups-us-east-1
-  description       = "Allow CloudFront to ALB"
-}
 
 
 

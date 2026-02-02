@@ -34,9 +34,9 @@ resource "aws_ecs_cluster_capacity_providers" "capacity_providers-us-east-1" {
 resource "aws_ecs_task_definition" "ecs_task_definition-us-east-1" {
   family                   = "app-ecs-task-us-east-1"
   network_mode             = "awsvpc"
-  requires_compatibilities = ["EC2"] # ou FARGATE, dependendo do seu cluster
-  cpu                      = "256"
-  memory                   = "512"
+  requires_compatibilities = ["EC2"] 
+  cpu                      = ${var.cpu}
+  memory                   = ${var.memory}
 
   
 
@@ -50,7 +50,7 @@ resource "aws_ecs_task_definition" "ecs_task_definition-us-east-1" {
   container_definitions = jsonencode([
     {
       name      = "dockergs"
-      image     = "737911104822.dkr.ecr.us-east-1.amazonaws.com/app_repo:nginx"
+      image     = ${var.image}
       essential = true
 
       portMappings = [
@@ -161,9 +161,9 @@ resource "aws_ecs_task_definition" "ecs_task_definition-us-east-2" {
   provider      = aws.us_east_2
   family                   = "app-ecs-task-us-east-2"
   network_mode             = "awsvpc"
-  requires_compatibilities = ["EC2"] # ou FARGATE, dependendo do seu cluster
-  cpu                      = "256"
-  memory                   = "512"
+  requires_compatibilities = ["EC2"] 
+  cpu                      = ${var.cpu}
+  memory                   = ${var.memory}
 
   execution_role_arn = data.terraform_remote_state.security.outputs.ecs_task_execution_role
 
@@ -175,7 +175,7 @@ resource "aws_ecs_task_definition" "ecs_task_definition-us-east-2" {
   container_definitions = jsonencode([
     {
       name      = "dockergs"
-      image     = "737911104822.dkr.ecr.us-east-2.amazonaws.com/app_repo:nginx"
+      image     = ${var.image}
       essential = true
 
       portMappings = [

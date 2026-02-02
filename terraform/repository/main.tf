@@ -7,11 +7,11 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "remote-tfstate-lock"
+    bucket         = "xxxxxxx"
     key            = "state/repository/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
-    dynamodb_table = "remote-tfstate-lock"
+    dynamodb_table = "xxxxxxx-tfstate-lock"
   }
 }
 
